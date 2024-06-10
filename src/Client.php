@@ -10,7 +10,8 @@ use alexeevdv\SumSub\Exception\TransportException;
 use alexeevdv\SumSub\Request\AccessTokenRequest;
 use alexeevdv\SumSub\Request\ApplicantDataRequest;
 use alexeevdv\SumSub\Request\ApplicantStatusRequest;
-use alexeevdv\SumSub\Request\ChangeProvidedInfo;
+use alexeevdv\SumSub\Request\ChangeProvidedInfoRequest;
+use alexeevdv\SumSub\Request\ChangeProvidedTopLevelInformationRequest;
 use alexeevdv\SumSub\Request\CreateApplicantDataRequest;
 use alexeevdv\SumSub\Request\DocumentImageRequest;
 use alexeevdv\SumSub\Request\InspectionChecksRequest;
@@ -120,11 +121,43 @@ final class Client implements ClientInterface
         return new ApplicantDataResponse($this->decodeResponse($httpResponse));
     }
 
-    public function changeApplicantData(ChangeProvidedInfo $request): ApplicantDataResponse
+    public function changeApplicantInfo(ChangeProvidedInfoRequest $request): ApplicantDataResponse
     {
         $url = $this->baseUrl . '/resources/applicants/' . $request->getApplicantId() . '/fixedInfo';
 
         $httpRequest = $this->createApiRequest('PATCH', $url, $request->getfixedInfo());
+        $httpResponse = $this->sendApiRequest($httpRequest);
+
+        if ($httpResponse->getStatusCode() !== 200) {
+            throw new BadResponseException($httpResponse);
+        }
+
+        return new ApplicantDataResponse($this->decodeResponse($httpResponse));
+    }
+
+
+    public function changeApplicantTopLevelInformation(ChangeProvidedTopLevelInformationRequest $request): ApplicantDataResponse
+    {
+        $url = $this->baseUrl . '/resources/applicants/' . $request->getApplicantId();
+
+        $body = [];
+        if ($request->getEmail() !== null) {
+            $body['email'] = $request->getEmail();
+        }
+
+        if ($request->getExternalUserId() !== null) {
+            $body['externalUserId'] = $request->getExternalUserId();
+        }
+
+        if ($request->getPhone() !== null) {
+            $body['phone'] = $request->getPhone();
+        }
+
+        if ($request->getDeleted() !== null) {
+            $body['deleted'] = $request->getDeleted();
+        }
+
+        $httpRequest = $this->createApiRequest('PATCH', $url, $body);
         $httpResponse = $this->sendApiRequest($httpRequest);
 
         if ($httpResponse->getStatusCode() !== 200) {

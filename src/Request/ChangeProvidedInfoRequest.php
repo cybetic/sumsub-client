@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace alexeevdv\SumSub\Request;
 
-final class ChangeProvidedInfo
+final class ChangeProvidedInfoRequest
 {
 
     public function __construct(
