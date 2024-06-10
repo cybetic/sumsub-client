@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace alexeevdv\SumSub;
 
 use alexeevdv\SumSub\Exception\BadResponseException;
+use alexeevdv\SumSub\Exception\ConflictException;
 use alexeevdv\SumSub\Exception\TransportException;
 use alexeevdv\SumSub\Request\AccessTokenRequest;
 use alexeevdv\SumSub\Request\ApplicantDataRequest;
 use alexeevdv\SumSub\Request\ApplicantStatusRequest;
+use alexeevdv\SumSub\Request\ChangeProvidedInfo;
 use alexeevdv\SumSub\Request\CreateApplicantDataRequest;
 use alexeevdv\SumSub\Request\DocumentImageRequest;
 use alexeevdv\SumSub\Request\InspectionChecksRequest;
@@ -105,6 +107,24 @@ final class Client implements ClientInterface
         ];
 
         $httpRequest = $this->createApiRequest('POST', $url, $body);
+        $httpResponse = $this->sendApiRequest($httpRequest);
+
+        if ($httpResponse->getStatusCode() === 409) {
+            throw new ConflictException($httpResponse);
+        }
+
+        if ($httpResponse->getStatusCode() !== 201) {
+            throw new BadResponseException($httpResponse);
+        }
+
+        return new ApplicantDataResponse($this->decodeResponse($httpResponse));
+    }
+
+    public function changeApplicantData(ChangeProvidedInfo $request): ApplicantDataResponse
+    {
+        $url = $this->baseUrl . '/resources/applicants/' . $request->getApplicantId() . '/fixedInfo';
+
+        $httpRequest = $this->createApiRequest('PATCH', $url, $request->getfixedInfo());
         $httpResponse = $this->sendApiRequest($httpRequest);
 
         if ($httpResponse->getStatusCode() !== 200) {
