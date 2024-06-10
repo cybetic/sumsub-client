@@ -9,8 +9,10 @@ use alexeevdv\SumSub\Exception\TransportException;
 use alexeevdv\SumSub\Request\AccessTokenRequest;
 use alexeevdv\SumSub\Request\ApplicantDataRequest;
 use alexeevdv\SumSub\Request\ApplicantStatusRequest;
+use alexeevdv\SumSub\Request\CreateApplicantDataRequest;
 use alexeevdv\SumSub\Request\DocumentImageRequest;
 use alexeevdv\SumSub\Request\InspectionChecksRequest;
+use alexeevdv\SumSub\Request\RequestApplicantChecksRequest;
 use alexeevdv\SumSub\Request\RequestSignerInterface;
 use alexeevdv\SumSub\Request\ResetApplicantRequest;
 use alexeevdv\SumSub\Response\AccessTokenResponse;
@@ -18,6 +20,7 @@ use alexeevdv\SumSub\Response\ApplicantDataResponse;
 use alexeevdv\SumSub\Response\ApplicantStatusResponse;
 use alexeevdv\SumSub\Response\DocumentImageResponse;
 use alexeevdv\SumSub\Response\InspectionChecksResponse;
+use GuzzleHttp\Psr7\Utils;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface as HttpClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -51,11 +54,12 @@ final class Client implements ClientInterface
     private $baseUrl;
 
     public function __construct(
-        HttpClientInterface $httpClient,
+        HttpClientInterface     $httpClient,
         RequestFactoryInterface $requestFactory,
-        RequestSignerInterface $requestSigner,
-        string $baseUrl = self::PRODUCTION_BASE_URI
-    ) {
+        RequestSignerInterface  $requestSigner,
+        string                  $baseUrl = self::PRODUCTION_BASE_URI
+    )
+    {
         $this->httpClient = $httpClient;
         $this->requestFactory = $requestFactory;
         $this->requestSigner = $requestSigner;
@@ -89,6 +93,39 @@ final class Client implements ClientInterface
         $decodedResponse = $this->decodeResponse($httpResponse);
 
         return new AccessTokenResponse($decodedResponse['token'], $decodedResponse['userId']);
+    }
+
+    public function createApplicantData(CreateApplicantDataRequest $request): ApplicantDataResponse
+    {
+        $url = $this->baseUrl . '/resources/applicants?' . http_build_query(['levelName' => $request->getLevelName()]);
+
+        $body = [
+            'externalUserId' => $request->getExternalUserId(),
+            'fixedInfo' => $request->getfixedInfo(),
+        ];
+
+        $httpRequest = $this->createApiRequest('POST', $url, $body);
+        $httpResponse = $this->sendApiRequest($httpRequest);
+
+        if ($httpResponse->getStatusCode() !== 200) {
+            throw new BadResponseException($httpResponse);
+        }
+
+        return new ApplicantDataResponse($this->decodeResponse($httpResponse));
+    }
+
+    public function requestApplicantCheck(RequestApplicantChecksRequest $request): ApplicantDataResponse
+    {
+        $url = $this->baseUrl . '/resources/applicants/' . $request->getApplicantId() . '/status/pending';
+
+        $httpRequest = $this->createApiRequest('POST', $url);
+        $httpResponse = $this->sendApiRequest($httpRequest);
+
+        if ($httpResponse->getStatusCode() !== 200) {
+            throw new BadResponseException($httpResponse);
+        }
+
+        return new ApplicantDataResponse($this->decodeResponse($httpResponse));
     }
 
     /**
@@ -131,7 +168,7 @@ final class Client implements ClientInterface
         $decodedResponse = $this->decodeResponse($httpResponse);
         $isOk = ($decodedResponse['ok'] ?? 0) === 1;
 
-        if (! $isOk) {
+        if (!$isOk) {
             throw new BadResponseException($httpResponse);
         }
     }
@@ -186,11 +223,20 @@ final class Client implements ClientInterface
         return new InspectionChecksResponse($this->decodeResponse($httpResponse));
     }
 
-    private function createApiRequest(string $method, string $uri): RequestInterface
+    private function createApiRequest(string $method, string $uri, array|null $body = null): RequestInterface
     {
         $httpRequest = $this->requestFactory
             ->createRequest($method, $uri)
-            ->withHeader('Accept', 'application/json');
+            ->withHeader('Accept', 'application/json')
+            ->withHeader('Content-Type', 'application/json');
+
+        if ($body !== '' && $body !== null) {
+            if (is_string($body) === false) {
+                $body = json_encode($body);
+            }
+            $httpRequest = $httpRequest->withBody(Utils::streamFor($body));
+        }
+
         return $this->requestSigner->sign($httpRequest);
     }
 
