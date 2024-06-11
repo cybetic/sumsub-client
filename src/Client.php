@@ -138,9 +138,9 @@ final class Client implements ClientInterface
 
     public function changeApplicantTopLevelInformation(ChangeProvidedTopLevelInformationRequest $request): ApplicantDataResponse
     {
-        $url = $this->baseUrl . '/resources/applicants/' . $request->getApplicantId();
+        $url = $this->baseUrl . '/resources/applicants';
 
-        $body = [];
+        $body = ['id' => $request->getApplicantId()];
         if ($request->getEmail() !== null) {
             $body['email'] = $request->getEmail();
         }
